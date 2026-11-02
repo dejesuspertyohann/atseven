@@ -105,6 +105,11 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .send:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .note{color:var(--muted);font-size:15px;text-align:center;margin:0 0 10px}
 .lbl{margin:0 0 8px;font-family:'Orbitron','Arial Black',sans-serif;font-weight:800;font-size:14px;letter-spacing:.06em;color:var(--red)}
+.kid{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 12px}
+.kid p{margin:0;font-weight:700;min-width:0}
+.kid .rm{flex:none;padding:8px 10px;font-size:11px}
+button.add{display:block;width:100%;margin:0 0 10px;padding:11px 8px;font-size:12px;background:transparent;border:1px dashed var(--line);color:var(--muted)}
+#status{margin:12px 0 0}
 .map.prog{background:var(--red);border-color:var(--red);color:#fff;font-family:'Orbitron','Arial Black',sans-serif;font-weight:800;font-size:14px;letter-spacing:.08em}
 .ph{padding:18px 20px 0;text-align:center}
 .ph small{display:block;font-family:'Orbitron','Arial Black',sans-serif;font-weight:800;font-size:12px;letter-spacing:.2em;color:var(--muted)}
@@ -164,12 +169,13 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 
   <section class="rsvp">
     <h2>WILL YOU JOIN US?</h2>
+    <p class="lbl" id="lbl">Child’s Name</p>
     <div id="list"></div>
-    <p class="note" id="more" hidden>Child added! To add child 2, 3 or more, fill in the form below. Each child is sent to the host as one response.</p>
-    <p class="lbl" id="lbl">Child</p>
-    <div class="row"><input id="who" placeholder="Child’s name" autocomplete="off" aria-label="Child’s name"></div>
+    <div class="row"><input id="who" placeholder="First Name MI Last Name" autocomplete="off" aria-label="Full Name of the Child (First Name MI Last Name)"></div>
     <div class="row"><select id="n" aria-label="Companions"></select></div>
-    <div class="btns"><button class="yes" id="yes" type="button">I’LL BE THERE</button><button id="no" type="button">CAN’T MAKE IT</button></div>
+    <button class="add" id="add" type="button">+ ADD ANOTHER CHILD</button>
+    <div class="btns"><button class="yes" id="yes" type="button">WE’LL BE THERE</button><button id="no" type="button">CAN’T MAKE IT</button></div>
+    <p class="note" id="status" hidden></p>
   </section>
 
   <p class="foot">Come ready to play, eat, and celebrate. May the Force be with you.</p>
@@ -218,65 +224,61 @@ button:focus-visible{outline:2px solid #fff;outline-offset:2px}
   }
   tick();setInterval(tick,1000);
 
-  // RSVP
-  // Paste your Google Form link and entry ids here to send answers to your Google Sheet.
-  var GF={url:'',child:'',resp:'',comp:''};
+  // RSVP: one tap on the answer sends everything to the host's Google Sheet
   var SHEET='https://script.google.com/macros/s/AKfycbwwVyEo07HK4J4JSaSjp4wtNwICqfauoWrjKIVzgpHEaZUPiNEbk0mfvs9zEQBTdSE/exec';
   function $(i){return document.getElementById(i)}
-  var who=$('who'),n=$('n'),list=$('list'),more=$('more'),kids=[];
+  var who=$('who'),n=$('n'),list=$('list'),status=$('status'),kids=[];
   function cText(c){return c===0?'No companion':c+(c===1?' companion':' companions')}
+  function kText(k){return cText(k.comp)+(k.ref?' (same as '+k.ref+')':'')}
+  function niceNames(a){return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' & '+a[a.length-1]}
   function fillOpts(){
     n.innerHTML='<option value="0">No companion</option><option value="1">1 companion</option><option value="2">2 companions (maximum)</option>';
     if(kids.length){var o=document.createElement('option');o.value='same';o.textContent='Same companion as '+kids[kids.length-1].name;n.insertBefore(o,n.firstChild);n.value='same'}
-    who.placeholder=kids.length?'Next child’s name':'Child’s name';
-    $('lbl').textContent=kids.length?'Add child '+(kids.length+1)+' (optional)':'Child';
-  }
-  function msgFor(k){
-    var g=k.same?'with the same companion as '+k.ref:(k.comp?'with '+cText(k.comp):'no companion');
-    return k.yes?'Hi! '+k.name+' will be at Yohann’s 7th birthday on Friday, November 20, 5–7pm at Jollibee Nasugbu, '+g+'.':'Hi! Sorry, '+k.name+' can’t make it to Yohann’s 7th birthday on November 20. Happy birthday!';
-  }
-  function formUrl(k){
-    if(SHEET){
-      return SHEET+'?name='+encodeURIComponent(k.name)
-        +'&response='+encodeURIComponent(k.yes?'Confirmed':'Cannot make it')
-        +'&companions='+encodeURIComponent(k.yes?(k.same?'Same as '+k.ref:cText(k.comp)):'');
-    }
-    if(!GF.url)return '';
-    try{
-      var u=new URL(GF.url);u.searchParams.set('usp','pp_url');
-      var put=function(id,v){if(id)u.searchParams.set(id,v)};
-      put(GF.child,k.name);put(GF.resp,k.yes?'Confirmed':'Cannot make it');
-      put(GF.comp,k.yes?(k.same?'Same as '+k.ref:cText(k.comp)):'');
-      return u.toString();
-    }catch(e){return ''}
+    who.placeholder='First Name MI Last Name';
+    $('lbl').textContent=kids.length?'Next Child’s Name':'Child’s Name';
+    $('add').hidden=false;
   }
   function render(){
     list.textContent='';
     kids.forEach(function(k,i){
       var d=document.createElement('div');d.className='kid';
-      var p=document.createElement('p');
-      p.textContent=k.name+' — '+(k.yes?'Confirmed':'Cannot make it')+(k.yes?' · '+(k.same?'same companion as '+k.ref:cText(k.comp).toLowerCase()):'');
-      var a=document.createElement('div');a.className='k-actions';
-      var url=formUrl(k);
-      if(url){var l=document.createElement('a');l.className='send';l.href=url;l.target='_blank';l.rel='noopener';l.textContent='SEND TO HOST';a.appendChild(l)}
-      else{var b=document.createElement('button');b.type='button';b.textContent='COPY MESSAGE FOR THE HOST';
-        b.addEventListener('click',function(){try{navigator.clipboard.writeText(msgFor(k)).then(function(){b.textContent='COPIED'},function(){b.textContent='COPY FAILED'})}catch(e){b.textContent='COPY FAILED'}});a.appendChild(b)}
+      var p=document.createElement('p');p.textContent=k.name+' · '+kText(k).toLowerCase();
       var x=document.createElement('button');x.type='button';x.className='rm';x.textContent='REMOVE';
-      x.addEventListener('click',function(){kids.splice(i,1);fillOpts();render()});a.appendChild(x);
-      d.appendChild(p);d.appendChild(a);list.appendChild(d);
+      x.addEventListener('click',function(){kids.splice(i,1);fillOpts();render()});
+      d.appendChild(p);d.appendChild(x);list.appendChild(d);
     });
-    more.hidden=!kids.length;
   }
-  function answer(yes){
+  function needName(){who.focus();who.style.borderColor='#e0232d';who.placeholder='Enter the child’s full name first'}
+  function takeCurrent(){
     var name=who.value.trim();
-    if(!name){who.focus();who.style.borderColor='#e0232d';who.placeholder='Enter the child’s name first';return}
+    if(!name){needName();return false}
     who.style.borderColor='';
-    var v=n.value,k={name:name,yes:yes,same:yes&&v==='same',comp:(yes&&v!=='same')?+v:0,ref:kids.length?kids[kids.length-1].name:''};
-    kids.push(k);who.value='';
-    fillOpts();render();
+    var v=n.value,last=kids[kids.length-1],same=v==='same'&&!!last;
+    kids.push({name:name,comp:same?last.comp:+v,ref:same?last.name:''});
+    who.value='';
+    return true;
   }
-  $('yes').addEventListener('click',function(){answer(true)});
-  $('no').addEventListener('click',function(){answer(false)});
+  $('add').addEventListener('click',function(){
+    status.hidden=true;
+    if(takeCurrent()){fillOpts();render();who.focus()}
+  });
+  function send(yes){
+    if(who.value.trim()){takeCurrent()}
+    else if(!kids.length){needName();return}
+    var names=kids.map(function(k){return k.name});
+    var rows=kids.map(function(k){return {n:k.name,c:yes?kText(k):''}});
+    var url=SHEET+'?response='+encodeURIComponent(yes?'Confirmed':'Cannot make it')
+      +'&name='+encodeURIComponent(names.join(', '))
+      +'&companions='+encodeURIComponent(rows.map(function(r){return r.c}).join(' / '))
+      +'&kids='+encodeURIComponent(JSON.stringify(rows));
+    var w=null;try{w=window.open(url,'_blank')}catch(e){}
+    if(!w)location.href=url;
+    status.textContent='Sent to the host for '+niceNames(names)+'. To reply for another child, just add them above.';
+    status.hidden=false;
+    kids=[];fillOpts();render();
+  }
+  $('yes').addEventListener('click',function(){send(true)});
+  $('no').addEventListener('click',function(){send(false)});
   fillOpts();
 
   // Program page
